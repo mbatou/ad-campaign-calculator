@@ -1,21 +1,16 @@
-import pandas as pd
-from flask import Flask, jsonify, request, send_from_directory, render_template
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import traceback
 from data_analysis import get_analysis_results
-import os
 
 # Create the Flask application instance
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 CORS(app)
 
 # Load and analyze data
 analysis_results = get_analysis_results()
 
 def calculate_metrics(user_input):
-    # Ensure user_input has the required fields
-    if 'objective' not in user_input or 'budget' not in user_input or 'duration' not in user_input:
-        raise ValueError("Missing required fields")
     objective = user_input['objective']
     budget = float(user_input['budget'])
     duration = int(user_input['duration'])
@@ -50,33 +45,31 @@ def calculate_metrics(user_input):
 
 @app.route('/calculate', methods=['POST'])
 def calculate():
-    data = request.get_json()
-    
-    # Validate the incoming data
-    if not data or 'budget' not in data or 'duration' not in data:
-        return jsonify({'error': 'Invalid input'}), 400
-
-    # Perform calculations based on the data
-    # Example: results = some_calculation_function(data)
-
-    return jsonify({'result': 'calculated results here'})  # Replace with actual results
+    try:
+        user_input = request.json
+        if not user_input or 'budget' not in user_input or 'duration' not in user_input or 'objective' not in user_input:
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        metrics = calculate_metrics(user_input)
+        return jsonify(metrics)
+    except Exception as e:
+        return jsonify({
+            'error': f"An error occurred: {str(e)}",
+            'traceback': traceback.format_exc()
+        }), 400
 
 @app.route('/objectives', methods=['GET'])
 def get_objectives():
-    objectives = ['increase_brand_awareness', 'drive_website_traffic', 'generate_leads']
+    objectives = list(analysis_results['metrics_by_objective'].keys())
     return jsonify(objectives)
 
 @app.route('/')
 def index():
-    return send_from_directory('static', 'index.html')  # Serve the index.html file from the static folder
-
-@app.route('/welcome')
-def welcome():
-    return "Welcome to the homepage!"
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
     return send_from_directory(app.static_folder, path)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5500)
+    app.run(debug=True)

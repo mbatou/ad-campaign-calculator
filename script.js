@@ -1,20 +1,32 @@
 let jsonData = null;
 let metrics_by_objective;
+let analysisResults = null;
 
 // Load the Excel file when the page loads
 window.addEventListener('load', loadExcelFile);
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM fully loaded and parsed');
+    
+    const form = document.getElementById('campaignForm');
+    if (form) {
+        console.log('Form found, adding event listener');
+        form.onsubmit = function(event) {
+            event.preventDefault();
+            calculateAndDisplayResults();
+        };
+    } else {
+        console.error('Form with ID "campaignForm" not found.');
+    }
+
     loadObjectives();
-    document.getElementById('campaignForm').addEventListener('submit', calculateAndDisplayResults);
 
     // Add event listeners for real-time updates
-    const inputFields = ['objective', 'budget', 'duration', 'cpc', 'cpm', 'ctr', 'conversionRate'];
+    const inputFields = ['objective', 'budget', 'duration', 'cpc', 'cpm', 'ctr'];
     inputFields.forEach(field => {
         document.getElementById(field).addEventListener('input', calculateAndDisplayResults);
     });
 
-    const form = document.getElementById('prediction-form');
     const resultDiv = document.getElementById('result');
 
     form.addEventListener('submit', function(e) {
@@ -52,48 +64,37 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-function calculateAndDisplayResults(event) {
-    event.preventDefault(); // Prevent form submission
+function calculateAndDisplayResults() {
+    const formData = {
+        objective: document.getElementById('objective').value,
+        budget: parseFloat(document.getElementById('budget').value),
+        duration: parseInt(document.getElementById('duration').value),
+        cpc: parseFloat(document.getElementById('cpc').value) || 0,
+        cpm: parseFloat(document.getElementById('cpm').value) || 0,
+        ctr: parseFloat(document.getElementById('ctr').value) || 0,
+    };
 
-    const objectiveElement = document.getElementById('objective');
-    const budgetElement = document.getElementById('budget');
-
-    if (!objectiveElement || !budgetElement) {
-        console.error('Required form elements not found');
-        displayError('An error occurred: Form elements not found.');
-        return;
-    }
-
-    const objective = objectiveElement.value;
-    const budget = parseFloat(budgetElement.value);
-
-    if (objective === "") {
-        displayError('Please select an objective.');
-        return;
-    }
-
-    if (isNaN(budget) || budget <= 0) {
-        displayError('Please enter a valid budget amount.');
-        return;
-    }
-
-    // Collect other input values
-    const duration = parseFloat(document.getElementById('duration').value) || 0;
-    const cpc = parseFloat(document.getElementById('cpc').value) || 0;
-    const cpm = parseFloat(document.getElementById('cpm').value) || 0;
-    const ctr = parseFloat(document.getElementById('ctr').value) || 0;
-    const conversionRate = parseFloat(document.getElementById('conversionRate').value) || 0;
-
-    try {
-        // Perform calculations
-        const results = calculateResults(objective, budget, duration, cpc, cpm, ctr, conversionRate);
-
-        // Display results
-        displayResults(results);
-    } catch (error) {
-        console.error('Error in calculation:', error);
-        displayError('An error occurred during calculation. Please check your inputs and try again.');
-    }
+    fetch('/calculate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Handle the response data
+        console.log(data);
+        // Display results in the UI
+    })
+    .catch(error => {
+        console.error('There was a problem with the fetch operation:', error);
+    });
 }
 
 function displayError(message) {
@@ -101,96 +102,91 @@ function displayError(message) {
     resultsDiv.innerHTML = `<p class="text-red-500">${message}</p>`;
 }
 
-function calculateResults(objective, budget, duration, cpc, cpm, ctr, conversionRate) {
-    // Implement your calculation logic here
-    // This is a placeholder implementation
-    const estimatedImpressions = budget / (cpm / 1000);
-    const estimatedClicks = estimatedImpressions * (ctr / 100);
-    const estimatedConversions = estimatedClicks * (conversionRate / 100);
-
-    return {
-        estimatedReach: Math.round(estimatedImpressions * 0.8), // Assuming 80% of impressions are unique
-        estimatedImpressions: Math.round(estimatedImpressions),
-        estimatedClicks: Math.round(estimatedClicks),
-        estimatedConversions: Math.round(estimatedConversions),
-        costPerClick: budget / estimatedClicks,
-        costPerConversion: estimatedConversions > 0 ? budget / estimatedConversions : 0,
-        clickThroughRate: ctr,
-        conversionRate: conversionRate
-    };
-}
-
-function displayResults(results) {
-    const updateElement = (id, value, formatter = (v) => v) => {
-        const element = document.querySelector(`#results p[id="${id}"]`);
-        if (element) {
-            element.textContent = formatter(value);
-        } else {
-            console.warn(`Element with id '${id}' not found`);
-        }
-    };
-
-    updateElement('estimatedReach', results.estimatedReach, (v) => v.toLocaleString());
-    updateElement('estimatedImpressions', results.estimatedImpressions, (v) => v.toLocaleString());
-    updateElement('estimatedClicks', results.estimatedClicks, (v) => v.toLocaleString());
-    updateElement('estimatedConversions', results.estimatedConversions, (v) => v.toLocaleString());
-    updateElement('costPerClick', results.costPerClick, (v) => `$${v.toFixed(2)}`);
-    updateElement('costPerConversion', results.costPerConversion, (v) => `$${v.toFixed(2)}`);
-    updateElement('ctr', results.clickThroughRate, (v) => `${v.toFixed(2)}%`);
-    updateElement('conversionRate', results.conversionRate, (v) => `${v.toFixed(2)}%`);
+function displayResult(result) {
+    const resultsDiv = document.getElementById('results');
+    resultsDiv.innerHTML = `
+        <div class="bg-white p-4 rounded-lg shadow">
+            <span class="text-sm font-medium text-gray-500">Estimated Reach</span>
+            <p class="mt-1 text-2xl font-semibold text-gray-900">${result.estimated_reach.toLocaleString()}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <span class="text-sm font-medium text-gray-500">Estimated Impressions</span>
+            <p class="mt-1 text-2xl font-semibold text-gray-900">${result.estimated_impressions.toLocaleString()}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <span class="text-sm font-medium text-gray-500">Estimated Clicks</span>
+            <p class="mt-1 text-2xl font-semibold text-gray-900">${result.estimated_clicks.toLocaleString()}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <span class="text-sm font-medium text-gray-500">Estimated Results</span>
+            <p class="mt-1 text-2xl font-semibold text-gray-900">${result.estimated_results.toLocaleString()}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <span class="text-sm font-medium text-gray-500">Cost Per Click</span>
+            <p class="mt-1 text-2xl font-semibold text-gray-900">$${result.cost_per_click.toFixed(2)}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <span class="text-sm font-medium text-gray-500">Cost Per Result</span>
+            <p class="mt-1 text-2xl font-semibold text-gray-900">$${result.cost_per_result.toFixed(2)}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <span class="text-sm font-medium text-gray-500">Click-Through Rate (CTR)</span>
+            <p class="mt-1 text-2xl font-semibold text-gray-900">${result.ctr.toFixed(2)}%</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <span class="text-sm font-medium text-gray-500">Cost Per Mille (CPM)</span>
+            <p class="mt-1 text-2xl font-semibold text-gray-900">$${result.cpm.toFixed(2)}</p>
+        </div>
+    `;
 }
 
 function loadObjectives() {
-    fetch('http://127.0.0.1:5000/objectives')
-        .then(response => response.json())
-        .then(objectives => {
-            const selectElement = document.getElementById('objective');
-            objectives.forEach(objective => {
-                const option = document.createElement('option');
-                option.value = objective;
-                option.textContent = objective.charAt(0).toUpperCase() + objective.slice(1).replace(/_/g, ' ');
-                selectElement.appendChild(option);
-            });
+    console.log('Loading objectives...');
+    fetch('http://127.0.0.1:5500/objectives')
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
         })
-        .catch(error => console.error('Error loading objectives:', error));
+        .then(objectives => {
+            console.log('Objectives received:', objectives);
+            const selectElement = document.getElementById('objective');
+            if (selectElement) {
+                selectElement.innerHTML = '<option value="">Select an objective</option>';
+                objectives.forEach(objective => {
+                    const option = document.createElement('option');
+                    option.value = objective;
+                    option.textContent = objective.charAt(0).toUpperCase() + objective.slice(1).replace(/_/g, ' ');
+                    selectElement.appendChild(option);
+                });
+                console.log('Dropdown populated with objectives');
+            } else {
+                console.error('Select element with ID "objective" not found.');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading objectives:', error);
+        });
 }
 
 function loadExcelFile() {
-    fetch('data.xlsx') // Assuming the file is named 'data.xlsx' and is in the same directory as the HTML file
-        .then(response => response.arrayBuffer())
-        .then(data => {
-            const workbook = XLSX.read(new Uint8Array(data), {type: 'array'});
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            jsonData = XLSX.utils.sheet_to_json(worksheet);
-            calculateAndDisplayResults(); // Initial calculation
+    fetch('data.xlsx')  // Adjust the path if necessary
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.blob();  // Use blob for binary files
         })
-        .catch(error => console.error('Error loading Excel file:', error));
-}
-
-function displayResult(result) {
-    const budgetResult = document.getElementById('budgetResult');
-    const estimatedResult = document.getElementById('estimatedResult');
-
-    budgetResult.textContent = `$${result.budget}`;
-    
-    let metric;
-    switch(result.goal) {
-        case 'awareness':
-            metric = 'Impressions';
-            break;
-        case 'engagement':
-            metric = 'Engagements';
-            break;
-        case 'traffic':
-            metric = 'Clicks';
-            break;
-        case 'lead_generation':
-            metric = 'Leads';
-            break;
-    }
-    
-    estimatedResult.textContent = `${result.estimatedResult} ${metric}`;
+        .then(blob => {
+            // Process the Excel file here
+            const url = window.URL.createObjectURL(blob);
+            // Use the URL to read the Excel file
+        })
+        .catch(error => {
+            console.error('Error loading Excel file:', error);
+        });
 }
 
 // Add event listener to the Calculate button
@@ -203,3 +199,5 @@ fetch('http://127.0.0.1:5000/objectives')
         metrics_by_objective = data;
     })
     .catch(error => console.error('Error fetching objectives:', error));
+
+console.log(document.getElementById('estimatedReach')); // Should not be null
