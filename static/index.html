@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad Campaign Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-md w-full max-w-4xl flex">
+        <!-- Left side: Calculator -->
+        <div class="w-1/2 p-8 border-r border-gray-200">
+            <h1 class="text-2xl font-bold mb-6 text-center">Ad Campaign Calculator</h1>
+            <form id="campaignForm" class="space-y-4">
+                <div>
+                    <label for="duration" class="block mb-1">Campaign Duration (days)</label>
+                    <input type="number" id="duration" name="duration" required class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label for="goal" class="block mb-1">Campaign Goal</label>
+                    <select id="goal" name="goal" required class="w-full px-3 py-2 border rounded-md">
+                        <option value="awareness">Awareness</option>
+                        <option value="engagement">Engagement</option>
+                        <option value="traffic">Traffic</option>
+                        <option value="lead_generation">Lead Generation</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600">Calculate</button>
+            </form>
+        </div>
+        
+        <!-- Right side: Results -->
+        <div class="w-1/2 p-8">
+            <h2 class="text-xl font-semibold mb-6 text-center">Estimated Results</h2>
+            <div id="result" class="space-y-4">
+                <div class="bg-gray-100 p-4 rounded-md">
+                    <h3 class="font-semibold mb-2">Recommended Budget</h3>
+                    <p id="budgetResult" class="text-2xl font-bold text-blue-600">$0.00</p>
+                </div>
+                <div class="bg-gray-100 p-4 rounded-md">
+                    <h3 class="font-semibold mb-2">Estimated Performance</h3>
+                    <p id="estimatedResult" class="text-2xl font-bold text-green-600">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/script.js"></script>
+</body>
+</html>
